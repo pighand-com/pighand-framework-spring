@@ -84,6 +84,10 @@ public class BeanUtil {
         List<Function<Set<K>, List>> subTableQueries, List<Function<Object, K>> subTableIdGetters,
         List<BiConsumer<T, List>> subResultSetters) {
 
+        if (VerifyUtils.isEmpty(mainList)) {
+            return;
+        }
+
         if (mainIdGetters.size() != subTableQueries.size() || mainIdGetters.size() != subTableIdGetters.size()) {
             throw new IllegalArgumentException(
                 "The size of mainIdGetters, subTableQueries, and subTableIdGetters must be the same.");

@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -39,9 +40,12 @@ public class ExceptionHandle {
     public static final MediaType APPLICATION_JSON_UTF8 =
         new MediaType(MediaType.APPLICATION_JSON.getType(), MediaType.APPLICATION_JSON.getSubtype(),
             StandardCharsets.UTF_8);
+
     // 异常返回数据方法
     private static final Map<String, Function<Object, Object>> exceptionDataFunction = new HashMap<>();
+
     private static final Set<String> exceptionDataFunctionNames = new HashSet<>();
+
     ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${access-control-allow.origin}")
@@ -86,6 +90,11 @@ public class ExceptionHandle {
     @ExceptionHandler(Exception.class)
     @ResponseBody
     public Object javaException(HttpServletRequest request, HttpServletResponse response, Exception ex) {
+        if (ex instanceof NoHandlerFoundException) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return ex.getMessage();
+        }
+
         if (ex instanceof MethodArgumentNotValidException validException) {
             // 处理@Validated异常
             FieldError fieldError = validException.getFieldError();

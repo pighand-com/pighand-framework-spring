@@ -1,5 +1,6 @@
 package com.pighand.framework.spring.http.exchange;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -10,12 +11,17 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
+import org.springframework.http.HttpRequest;
+import org.springframework.http.client.ClientHttpRequestExecution;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.util.ClassUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.support.RestClientAdapter;
 import org.springframework.web.service.annotation.HttpExchange;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
+import java.io.IOException;
 import java.util.Set;
 
 /**
@@ -25,6 +31,7 @@ import java.util.Set;
  *
  * @author wangshuli
  */
+@Slf4j
 public class HttpExchangeRegister implements BeanDefinitionRegistryPostProcessor, ApplicationContextAware {
     private ApplicationContext applicationContext;
 
@@ -80,7 +87,14 @@ public class HttpExchangeRegister implements BeanDefinitionRegistryPostProcessor
                 throw new RuntimeException(e);
             }
 
-            RestClient client = RestClient.create();
+            RestClient.Builder clientBuilder = RestClient.builder();
+
+            // 如果日志级别是 info，则添加日志拦截器
+            if (log.isInfoEnabled()) {
+                clientBuilder.requestInterceptor(new LoggingInterceptor());
+            }
+
+            RestClient client = clientBuilder.build();
 
             Object bean =
                 HttpServiceProxyFactory.builderFor(RestClientAdapter.create(client)).build().createClient(clz);
@@ -96,7 +110,23 @@ public class HttpExchangeRegister implements BeanDefinitionRegistryPostProcessor
         }
     }
 
-    @Override
-    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+    /**
+     * 自定义日志拦截器
+     */
+    static class LoggingInterceptor implements ClientHttpRequestInterceptor {
+        @Override
+        public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution)
+            throws IOException {
+            // 打印请求日志
+            log.info("Request: URI={}, Method={}, Headers={}, Body={}", request.getURI(), request.getMethod(),
+                request.getHeaders(), new String(body));
+
+            ClientHttpResponse response = execution.execute(request, body);
+
+            // 打印响应日志
+            log.info("Response: Status Code={}, headers={}", response.getStatusCode(), response.getHeaders());
+
+            return response;
+        }
     }
 }
